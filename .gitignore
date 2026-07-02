@@ -2,12 +2,3 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
-# Large spatial shapefiles
-shp/
-
-# Raw satellite CSV data
-viirs/
-
-# Generated outputs
-output/
