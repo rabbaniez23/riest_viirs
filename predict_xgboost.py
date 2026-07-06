@@ -11,6 +11,7 @@ Pastikan process_viirs_wpp.py sudah dijalankan terlebih dahulu!
 """
 
 import os
+os.environ['SHAPE_RESTORE_SHX'] = 'YES'
 import warnings
 import numpy as np
 import pandas as pd
@@ -34,12 +35,13 @@ except ImportError:
     print("[WARNING] xgboost/scikit-learn/joblib belum terinstall.")
     print("Jalankan: pip install xgboost scikit-learn joblib")
 
-# ─── Konfigurasi Path ─────────────────────────────────────────────────────────
-FILTERED_CSV = 'd:/Pekerjaan/riset/pertemuan4/output/filtered_data.csv'
-SHP_DIR      = 'd:/Pekerjaan/riset/pertemuan4/shp'
-PRED_DIR     = 'd:/Pekerjaan/riset/pertemuan4/output/predictions'
-FIG_DIR      = 'd:/Pekerjaan/riset/pertemuan4/output/figures'
-MODEL_PATH   = 'd:/Pekerjaan/riset/pertemuan4/output/predictions/xgboost_model.pkl'
+# ─── Konfigurasi Path (Relative) ──────────────────────────────────────────────
+BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
+FILTERED_CSV = os.path.join(BASE_DIR, 'output', 'filtered_data.csv')
+SHP_DIR      = os.path.join(BASE_DIR, 'shp')
+PRED_DIR     = os.path.join(BASE_DIR, 'output', 'predictions')
+FIG_DIR      = os.path.join(BASE_DIR, 'output', 'figures')
+MODEL_PATH   = os.path.join(PRED_DIR, 'xgboost_model.pkl')
 
 os.makedirs(PRED_DIR, exist_ok=True)
 os.makedirs(FIG_DIR, exist_ok=True)
@@ -197,20 +199,61 @@ def train_xgboost(agg):
 
 
 def predict_future(model, feature_cols, lat_range, lon_range):
-    """Prediksi kepadatan kapal 2026-2030 per grid per bulan/tahun."""
+    """Prediksi kepadatan kapal 2026-2030 menggunakan auto-regressive forecasting."""
     future_df = make_future_grid(lat_range, lon_range, PREDICT_YEARS)
     future_df['month_sin'] = np.sin(2 * np.pi * future_df['Month'] / 12)
     future_df['month_cos'] = np.cos(2 * np.pi * future_df['Month'] / 12)
     future_df['year_norm'] = (future_df['Year'] - 2024) / 10
     future_df['time_idx']  = (future_df['Year'] - 2024) * 12 + future_df['Month']
-    future_df['lag1']      = 0
-    future_df['lag2']      = 0
-    future_df['roll3']     = 0
-    future_df['mean_rad']  = 5.0  # asumsi rata-rata historis
-
-    cols = [c for c in feature_cols if c in future_df.columns]
-    X_future = future_df[cols].fillna(0).values
-    future_df['predicted_count'] = np.maximum(0, model.predict(X_future))
+    future_df['mean_rad']  = 5.0  # Asumsi rata-rata historis
+    
+    # Inisialisasi kolom lag dengan 0 (akan di-update dinamis)
+    future_df['lag1'] = 0.0
+    future_df['lag2'] = 0.0
+    future_df['roll3'] = 0.0
+    future_df['predicted_count'] = 0.0
+    
+    # Sort chronologically
+    future_df = future_df.sort_values(['Year', 'Month', 'lat_grid', 'lon_grid']).reset_index(drop=True)
+    
+    # Dictionary untuk melacak history prediksi per grid: key=(lat, lon), value=[t-3, t-2, t-1]
+    history = {}
+    
+    # Ekstrak unique time periods
+    time_periods = future_df[['Year', 'Month']].drop_duplicates().sort_values(['Year', 'Month'])
+    
+    for _, period in time_periods.iterrows():
+        yr, mo = period['Year'], period['Month']
+        # Mask untuk bulan saat ini
+        mask = (future_df['Year'] == yr) & (future_df['Month'] == mo)
+        curr_indices = future_df.index[mask]
+        
+        # Update fitur lag sebelum memprediksi
+        for idx in curr_indices:
+            lat, lon = future_df.at[idx, 'lat_grid'], future_df.at[idx, 'lon_grid']
+            if (lat, lon) not in history:
+                history[(lat, lon)] = [0.0, 0.0, 0.0]
+            
+            hist = history[(lat, lon)]
+            future_df.at[idx, 'lag1'] = hist[-1]
+            future_df.at[idx, 'lag2'] = hist[-2]
+            future_df.at[idx, 'roll3'] = np.mean(hist)
+            
+        # Extract features untuk diprediksi
+        cols = [c for c in feature_cols if c in future_df.columns]
+        curr_X = future_df.loc[mask, cols].fillna(0).values
+        
+        # Lakukan Prediksi
+        preds = np.maximum(0, model.predict(curr_X))
+        future_df.loc[mask, 'predicted_count'] = preds
+        
+        # Update history untuk step berikutnya
+        for idx, pred in zip(curr_indices, preds):
+            lat, lon = future_df.at[idx, 'lat_grid'], future_df.at[idx, 'lon_grid']
+            hist = history[(lat, lon)]
+            hist.append(pred)
+            history[(lat, lon)] = hist[-3:] # simpan hanya 3 terakhir
+            
     return future_df
 
 

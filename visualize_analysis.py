@@ -14,6 +14,7 @@ Pastikan process_viirs_wpp.py sudah dijalankan terlebih dahulu!
 """
 
 import os
+os.environ['SHAPE_RESTORE_SHX'] = 'YES'
 import requests
 import zipfile
 import io
@@ -25,16 +26,18 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from matplotlib.patches import Polygon as MplPolygon
 from scipy import stats
+# pyrefly: ignore [missing-import]
 import shapefile
 from shapely.geometry import shape
 from shapely.ops import unary_union
 
 warnings.filterwarnings('ignore')
 
-# ─── Konfigurasi Path ─────────────────────────────────────────────────────────
-FILTERED_CSV = 'd:/Pekerjaan/riset/pertemuan4/output/filtered_data.csv'
-SHP_DIR      = 'd:/Pekerjaan/riset/pertemuan4/shp'
-FIG_DIR      = 'd:/Pekerjaan/riset/pertemuan4/output/figures'
+# ─── Konfigurasi Path (Relative) ──────────────────────────────────────────────
+BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
+FILTERED_CSV = os.path.join(BASE_DIR, 'output', 'filtered_data.csv')
+SHP_DIR      = os.path.join(BASE_DIR, 'shp')
+FIG_DIR      = os.path.join(BASE_DIR, 'output', 'figures')
 
 # ─── Style Global ─────────────────────────────────────────────────────────────
 plt.rcParams.update({
@@ -58,7 +61,7 @@ os.makedirs(FIG_DIR, exist_ok=True)
 # HELPER: Unduh basemap Indonesia dari Natural Earth
 # ══════════════════════════════════════════════════════════════════════════════
 def get_indonesia_basemap():
-    extract_dir = 'd:/Pekerjaan/riset/pertemuan4/output/ne_countries'
+    extract_dir = os.path.join(BASE_DIR, 'output', 'ne_countries')
     if not os.path.exists(extract_dir):
         print("Mengunduh basemap Indonesia dari Natural Earth...")
         url = "https://naturalearth.s3.amazonaws.com/10m_cultural/ne_10m_admin_0_countries.zip"
@@ -112,6 +115,7 @@ def load_wpp_geoms():
 
 def draw_wpp_boundaries(ax, wpp_geoms):
     for code, geom in wpp_geoms.items():
+        geom = geom.simplify(0.05, preserve_topology=True)
         color = WPP_COLOR.get(code, 'gray')
         polys = [geom] if geom.geom_type == 'Polygon' else list(geom.geoms)
         for poly in polys:
@@ -127,6 +131,7 @@ def draw_wpp_boundaries(ax, wpp_geoms):
 
 def draw_indonesia_land(ax, indonesia_polys):
     for geom in indonesia_polys:
+        geom = geom.simplify(0.05, preserve_topology=True)
         polys = [geom] if geom.geom_type == 'Polygon' else list(geom.geoms)
         for poly in polys:
             x, y = poly.exterior.xy
