@@ -14,7 +14,6 @@ Pastikan process_viirs_wpp.py sudah dijalankan terlebih dahulu!
 """
 
 import os
-os.environ['SHAPE_RESTORE_SHX'] = 'YES'
 import requests
 import zipfile
 import io
@@ -36,7 +35,7 @@ warnings.filterwarnings('ignore')
 # ─── Konfigurasi Path (Relative) ──────────────────────────────────────────────
 BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
 FILTERED_CSV = os.path.join(BASE_DIR, 'output', 'filtered_data.csv')
-SHP_DIR      = os.path.join(BASE_DIR, 'shp')
+SHP_DIR      = os.path.join(BASE_DIR, 'shp&shx')
 FIG_DIR      = os.path.join(BASE_DIR, 'output', 'figures')
 
 # ─── Style Global ─────────────────────────────────────────────────────────────

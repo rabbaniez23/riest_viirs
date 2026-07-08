@@ -11,7 +11,6 @@ Pastikan process_viirs_wpp.py sudah dijalankan terlebih dahulu!
 """
 
 import os
-os.environ['SHAPE_RESTORE_SHX'] = 'YES'
 import warnings
 import numpy as np
 import pandas as pd
@@ -38,7 +37,7 @@ except ImportError:
 # ─── Konfigurasi Path (Relative) ──────────────────────────────────────────────
 BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
 FILTERED_CSV = os.path.join(BASE_DIR, 'output', 'filtered_data.csv')
-SHP_DIR      = os.path.join(BASE_DIR, 'shp')
+SHP_DIR      = os.path.join(BASE_DIR, 'shp&shx')
 PRED_DIR     = os.path.join(BASE_DIR, 'output', 'predictions')
 FIG_DIR      = os.path.join(BASE_DIR, 'output', 'figures')
 MODEL_PATH   = os.path.join(PRED_DIR, 'xgboost_model.pkl')

@@ -7,7 +7,6 @@ Jalankan: python process_viirs_wpp.py
 """
 
 import os
-os.environ['SHAPE_RESTORE_SHX'] = 'YES'
 import re
 import pandas as pd
 import geopandas as gpd
@@ -15,7 +14,7 @@ import time
 
 # ─── Konfigurasi Path (Relative) ─────────────────────────────────────────────
 BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
-SHP_DIR   = os.path.join(BASE_DIR, 'shp')
+SHP_DIR   = os.path.join(BASE_DIR, 'shp&shx')
 VIIRS_DIR = os.path.join(BASE_DIR, 'viirs')
 OUT_CSV   = os.path.join(BASE_DIR, 'output', 'filtered_data.csv')
 
